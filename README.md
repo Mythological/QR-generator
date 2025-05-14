@@ -48,7 +48,7 @@
 
 4.  **Запустите приложение:**
     ```bash
-    python QR_generator.py 
+    python QR_generate.py 
     ```
 
 ## Использование
