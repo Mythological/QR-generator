@@ -19,6 +19,7 @@
     *   `PySide6`
     *   `qrcode`
     *   `Pillow` (обычно устанавливается как зависимость `qrcode[pil]`)
+    *   Для сканирования с экрана `pyzbar` `opencv-python` `numpy`
 
 ## Установка и запуск
 
@@ -43,7 +44,7 @@
 
 3.  **Установите зависимости:**
     ```bash
-    pip install PySide6 qrcode Pillow
+    pip install PySide6 qrcode Pillow pyzbar opencv-python numpy
     ```
 
 4.  **Запустите приложение:**
