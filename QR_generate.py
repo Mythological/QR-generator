@@ -13,6 +13,16 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import Qt, QSize
 
+# --- Импорт для сканирования QR с экрана ---
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    import cv2
+    from PIL import ImageGrab
+    import numpy as np
+    PYZBAR_AVAILABLE = True
+except ImportError:
+    PYZBAR_AVAILABLE = False
+
 # --- ОТЛАДОЧНЫЙ ФЛАГ ---
 DEBUG = True
 # -------------------------
@@ -83,6 +93,15 @@ class QRCodeGeneratorApp(QWidget):
         self.save_button.setEnabled(False)
         self.save_button.setStyleSheet("padding: 10px; font-size: 14px;")
         buttons_layout.addWidget(self.save_button)
+        # --- Кнопка сканирования QR с экрана ---
+        self.scan_button = QPushButton('Сканировать QR с экрана (Ctrl+R)')
+        self.scan_button.clicked.connect(self.scan_qr_from_screen)
+        self.scan_button.setStyleSheet("padding: 10px; font-size: 14px;")
+        self.scan_button.setShortcut('Ctrl+R')  # Горячая клавиша Ctrl+R
+        if not PYZBAR_AVAILABLE:
+            self.scan_button.setEnabled(False)
+            self.scan_button.setToolTip('pyzbar и/или opencv не установлены')
+        buttons_layout.addWidget(self.scan_button)
         main_layout.addLayout(buttons_layout)
         self.setLayout(main_layout)
         self.setMinimumSize(400, 550)
@@ -188,6 +207,42 @@ class QRCodeGeneratorApp(QWidget):
                 QMessageBox.critical(self, "Ошибка сохранения", f"Не удалось сохранить файл: {e}")
         else:
             log_debug("Сохранение отменено пользователем.")
+
+    def scan_qr_from_screen(self):
+        log_debug("Начало scan_qr_from_screen()...")
+        if not PYZBAR_AVAILABLE:
+            QMessageBox.warning(self, "Ошибка", "pyzbar и/или opencv не установлены. Установите их через pip.")
+            return
+        try:
+            # Снимок всего экрана
+            log_debug("Делаем снимок экрана...")
+            screenshot = ImageGrab.grab()
+            screenshot_np = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+            # Показываем окно выбора области (используем OpenCV)
+            log_debug("Показываем окно выбора области...")
+            r = cv2.selectROI("Выберите область с QR-кодом и нажмите Enter", screenshot_np, False, False)
+            cv2.destroyAllWindows()
+            if r == (0, 0, 0, 0):
+                log_debug("Область не выбрана.")
+                return
+            x, y, w, h = r
+            roi = screenshot_np[y:y+h, x:x+w]
+            # Декодируем QR
+            log_debug("Пробуем декодировать QR-код...")
+            decoded_objs = pyzbar_decode(roi)
+            if not decoded_objs:
+                QMessageBox.information(self, "QR не найден", "QR-код не найден в выбранной области.")
+                log_debug("QR-код не найден в выбранной области.")
+                return
+            qr_data = decoded_objs[0].data.decode('utf-8')
+            log_debug(f"QR-код успешно распознан: {qr_data}")
+            self.text_input.setPlainText(qr_data)
+            QMessageBox.information(self, "QR найден", f"QR-код успешно распознан:\n{qr_data}")
+        except Exception as e:
+            log_debug(f"ОШИБКА при сканировании QR: {e}")
+            if DEBUG:
+                traceback.print_exc()
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при сканировании QR: {e}")
 
 # --- КОНЕЦ КЛАССА QRCodeGeneratorApp ---
 
